@@ -55,7 +55,6 @@ Priv1     Priv2
 ## Ejecución
 ```bash
 terraform init
-terraform validate
 terraform plan       # revisa plan y nombres 
 terraform apply      # crea todos los recursos según main.tf
 ```
@@ -64,5 +63,17 @@ terraform apply      # crea todos los recursos según main.tf
 ```bash
 terraform destroy    # destruye todo sin variables adicionales
 ```
+
+## Evidencias
+Las siguientes capturas muestran los recursos desplegados y su verificación:
+
+![](./img/terraform-apply.png) 
+
+
+
+![](./img/resultado-lab.png)  
+
+
+![](./img/web-working.png)  
 
 
