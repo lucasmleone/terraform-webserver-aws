@@ -1,3 +1,4 @@
+# VPC principal: bloque IP y soporte DNS habilitado
 resource "aws_vpc" "lab_vpc" {
   cidr_block           = "10.0.0.0/16"
   enable_dns_support   = true
@@ -8,6 +9,7 @@ resource "aws_vpc" "lab_vpc" {
   }
 }
 
+# Subred pública AZ1: asigna IP pública automáticamente
 resource "aws_subnet" "lab_public_subnet1" {
   vpc_id                  = aws_vpc.lab_vpc.id
   cidr_block              = "10.0.0.0/24"
@@ -19,6 +21,7 @@ resource "aws_subnet" "lab_public_subnet1" {
   }
 }
 
+# Subred privada AZ1: sin IP pública
 resource "aws_subnet" "lab_private_subnet1" {
   vpc_id                  = aws_vpc.lab_vpc.id
   cidr_block              = "10.0.1.0/24"
@@ -29,7 +32,7 @@ resource "aws_subnet" "lab_private_subnet1" {
   }
 }
 
-// internet gateway
+// Internet Gateway: conecta la VPC a Internet
 resource "aws_internet_gateway" "lab_igw" {
   vpc_id = aws_vpc.lab_vpc.id
 
@@ -37,7 +40,8 @@ resource "aws_internet_gateway" "lab_igw" {
     Name = "lab-igw"
   }
 }
-//elastic ip
+
+// Elastic IP: dirección estática para NAT Gateway
 resource "aws_eip" "lab_nat_eip" {
   domain   = "vpc"
 
@@ -45,7 +49,8 @@ resource "aws_eip" "lab_nat_eip" {
     Name = "lab-nat-eip"
   }
 }
-// nat gateway
+
+// NAT Gateway AZ1: permite que subredes privadas accedan a Internet
 resource "aws_nat_gateway" "lab-nat-gateway" {
   allocation_id = aws_eip.lab_nat_eip.id
   subnet_id     = aws_subnet.lab_public_subnet1.id
@@ -59,7 +64,7 @@ resource "aws_nat_gateway" "lab-nat-gateway" {
   depends_on = [aws_internet_gateway.lab_igw]
 }
 
-// Public Route Table
+// Tabla de rutas pública: 0.0.0.0/0 -> IGW
 resource "aws_route_table" "public_route_table" {
   vpc_id = aws_vpc.lab_vpc.id
 
@@ -72,7 +77,7 @@ resource "aws_route_table" "public_route_table" {
   }
 }
 
-// Private Route Table
+// Tabla de rutas privada: 0.0.0.0/0 -> NAT Gateway
 resource "aws_route_table" "private_route_table" {
   vpc_id = aws_vpc.lab_vpc.id
   route {
@@ -84,18 +89,19 @@ resource "aws_route_table" "private_route_table" {
   }
 }
 
-# Route Table Association Private
+# Asociación de rutas: enlaza subred privada AZ1 a su tabla
 resource "aws_route_table_association" "lab_rt_assoc_private" {
   subnet_id      = aws_subnet.lab_private_subnet1.id
   route_table_id = aws_route_table.private_route_table.id
 }
 
-# Route Table Association Public
+# Asociación de rutas: enlaza subred pública AZ1 a su tabla
 resource "aws_route_table_association" "lab_rt_assoc_public" {
   subnet_id      = aws_subnet.lab_public_subnet1.id
   route_table_id = aws_route_table.public_route_table.id
 }
 
+# Subred pública AZ2
 resource "aws_subnet" "lab_public_subnet2" {
   vpc_id                  = aws_vpc.lab_vpc.id
   cidr_block              = "10.0.2.0/24"
@@ -107,6 +113,7 @@ resource "aws_subnet" "lab_public_subnet2" {
   }
 }
 
+# Subred privada AZ2
 resource "aws_subnet" "lab_private_subnet2" {
   vpc_id                  = aws_vpc.lab_vpc.id
   cidr_block              = "10.0.3.0/24"
@@ -117,17 +124,19 @@ resource "aws_subnet" "lab_private_subnet2" {
   }
 }
 
-# Route Table Association Private
+# Asociación de rutas: enlaza subred privada AZ2
 resource "aws_route_table_association" "lab_rt_assoc_private2" {
   subnet_id      = aws_subnet.lab_private_subnet2.id
   route_table_id = aws_route_table.private_route_table.id
 }
 
-# Route Table Association Public
+# Asociación de rutas: enlaza subred pública AZ2
 resource "aws_route_table_association" "lab_rt_assoc_public2" {
   subnet_id      = aws_subnet.lab_public_subnet2.id
   route_table_id = aws_route_table.public_route_table.id
 }
+
+# Security Group HTTP: permite tráfico entrante por puerto 80
 resource "aws_security_group" "allow_http" {
   name        = "Web Security Group"
   description = "Enable HTTP access"
@@ -138,12 +147,14 @@ resource "aws_security_group" "allow_http" {
   }
 }
 
+# Egress Rule: todo el tráfico de salida está permitido
 resource "aws_vpc_security_group_egress_rule" "allow_all_egress" {
   security_group_id = aws_security_group.allow_http.id
   cidr_ipv4         = "0.0.0.0/0"
   ip_protocol       = "-1"
 }
 
+# Ingress Rule: HTTP desde cualquier IPv4 (80/tcp)
 resource "aws_vpc_security_group_ingress_rule" "allow_http_ipv4" {
   security_group_id = aws_security_group.allow_http.id
   cidr_ipv4         = "0.0.0.0/0"
@@ -152,6 +163,7 @@ resource "aws_vpc_security_group_ingress_rule" "allow_http_ipv4" {
   to_port           = 80
 }
 
+# EC2 Instance: servidor web con Apache, PHP y contenido demo
 resource "aws_instance" "web-server1" {
   ami           = "resolve:ssm:/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-x86_64"
   instance_type = "t2.micro"
